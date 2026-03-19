@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
 import {
@@ -11,6 +11,31 @@ import { auth } from "@/lib/firebase";
 import { saveUserProfile, refreshRecommendations } from "@/lib/api";
 
 const AuthContext = createContext(null);
+
+function toFriendlyAuthError(error, mode) {
+  const code = error?.code || "";
+
+  if (code === "auth/invalid-credential") {
+    if (mode === "signIn") {
+      return new Error("Invalid email or password. If this is a new account, use Create Account first.");
+    }
+    return new Error("Authentication failed. Please verify your Firebase project settings and try again.");
+  }
+
+  if (code === "auth/email-already-in-use") {
+    return new Error("This email is already registered. Try signing in instead.");
+  }
+
+  if (code === "auth/weak-password") {
+    return new Error("Password is too weak. Use at least 6 characters.");
+  }
+
+  if (code === "auth/invalid-email") {
+    return new Error("Please enter a valid email address.");
+  }
+
+  return new Error(error?.message || "Authentication failed. Please try again.");
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -29,41 +54,52 @@ export function AuthProvider({ children }) {
       }
       setLoading(false);
     });
+
     return unsub;
   }, []);
 
   useEffect(() => {
     if (!user) return;
+
     const interval = setInterval(async () => {
       const t = await user.getIdToken(true);
       setToken(t);
     }, 55 * 60 * 1000);
+
     return () => clearInterval(interval);
   }, [user]);
 
   async function signIn(email, password) {
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    const idToken = await cred.user.getIdToken();
-    setUser(cred.user);
-    setToken(idToken);
-    return cred.user;
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const idToken = await cred.user.getIdToken();
+      setUser(cred.user);
+      setToken(idToken);
+      return cred.user;
+    } catch (error) {
+      throw toFriendlyAuthError(error, "signIn");
+    }
   }
 
   async function signUp(email, password, name, interests) {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    const idToken = await cred.user.getIdToken();
-    setUser(cred.user);
-    setToken(idToken);
-
-    await saveUserProfile(idToken, { name, interests });
-
     try {
-      await refreshRecommendations(idToken);
-    } catch (e) {
-      console.warn("[signUp] Could not pre-fetch recommendations:", e);
-    }
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const idToken = await cred.user.getIdToken();
+      setUser(cred.user);
+      setToken(idToken);
 
-    return cred.user;
+      await saveUserProfile(idToken, { name, interests });
+
+      try {
+        await refreshRecommendations(idToken);
+      } catch (e) {
+        console.warn("[signUp] Could not pre-fetch recommendations:", e);
+      }
+
+      return cred.user;
+    } catch (error) {
+      throw toFriendlyAuthError(error, "signUp");
+    }
   }
 
   async function logOut() {
