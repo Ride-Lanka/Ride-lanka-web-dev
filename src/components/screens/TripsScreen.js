@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import Sidebar from "../Sidebar";
@@ -15,6 +15,40 @@ const FAVORITE_OPTIONS = [
   { id: "adventure", label: "Adventure" },
   { id: "dance", label: "Dance" },
 ];
+
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+function buildMapEmbedUrl(stops) {
+  if (!GOOGLE_MAPS_KEY) return null;
+
+  const validCoords = Array.isArray(stops)
+    ? stops.filter((s) => typeof s.lat === "number" && typeof s.lng === "number")
+    : [];
+
+  // If we have at least two coordinates, show a directions route
+  if (validCoords.length >= 2) {
+    const coords = validCoords.map((s) => `${s.lat},${s.lng}`);
+    const origin = encodeURIComponent(coords[0]);
+    const destination = encodeURIComponent(coords[coords.length - 1]);
+    const waypoints =
+      coords.length > 2
+        ? `&waypoints=${encodeURIComponent(coords.slice(1, -1).join("|"))}`
+        : "";
+
+    return `https://www.google.com/maps/embed/v1/directions?key=${GOOGLE_MAPS_KEY}&origin=${origin}&destination=${destination}${waypoints}`;
+  }
+
+  // If we have a single coordinate, just center the map there
+  if (validCoords.length === 1) {
+    const { lat, lng } = validCoords[0];
+    return `https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_KEY}&center=${lat},${lng}&zoom=10&maptype=roadmap`;
+  }
+
+  // Fallback: center on Sri Lanka so the map is always visible
+  const defaultLat = 7.8731;
+  const defaultLng = 80.7718;
+  return `https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_KEY}&center=${defaultLat},${defaultLng}&zoom=7&maptype=roadmap`;
+}
 
 export default function TripsScreen({ active, showScreen }) {
   const { token } = useAuth();
@@ -34,6 +68,9 @@ export default function TripsScreen({ active, showScreen }) {
   const [aiSource, setAiSource] = useState("");
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [error, setError] = useState("");
+
+  const mapEmbedUrl = useMemo(() => buildMapEmbedUrl(plannedStops), [plannedStops]);
+  const listMapEmbedUrl = useMemo(() => buildMapEmbedUrl([]), []);
 
   const mapTitle = useMemo(() => {
     const safeName = tripName.trim();
@@ -143,10 +180,30 @@ export default function TripsScreen({ active, showScreen }) {
                 ))}
               </div>
               <div className="map-panel">
-                <div className="map-placeholder">
-                  <div className="icon">🗺️</div>
-                  <strong>Trip Map</strong>
-                  <span style={{ fontSize: 12 }}>Select New Trip to generate a route</span>
+                <div className="map-placeholder" style={{ padding: 0, display: "flex", alignItems: "stretch", justifyContent: "center" }}>
+                  {listMapEmbedUrl && (
+                    <div
+                      style={{
+                        width: "92%",
+                        height: "92%",
+                        margin: "4%",
+                        borderRadius: 18,
+                        overflow: "hidden",
+                        boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+                        background: "#e5f7fb",
+                      }}
+                    >
+                      <iframe
+                        title="Trips map overview"
+                        src={listMapEmbedUrl}
+                        width="100%"
+                        height="100%"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -154,36 +211,38 @@ export default function TripsScreen({ active, showScreen }) {
             <div className="new-trip-layout" style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 22 }}>
               <div className="new-trip-map">
                 <div className="map-panel" style={{ position: "relative", top: 0, height: "100%", minHeight: 580 }}>
-                  <div className="map-placeholder" style={{ alignItems: "stretch", justifyContent: "flex-start", padding: 20 }}>
-                    <div style={{ textAlign: "center", marginBottom: 12 }}>
-                      <div className="icon" style={{ marginBottom: 4 }}>📍</div>
-                      <strong>Map Preview</strong>
-                      <div style={{ fontSize: 12 }}>{mapTitle}</div>
-                      {aiSource && <div style={{ marginTop: 6, fontSize: 11 }}>AI source: {aiSource}</div>}
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
-                      {plannedStops.length === 0 ? (
-                        <div style={{ background: "rgba(255,255,255,0.6)", borderRadius: 10, padding: 14, fontSize: 12, textAlign: "center" }}>
-                          Generate the plan to view mapped stops.
-                        </div>
-                      ) : (
-                        plannedStops.map((s, i) => (
-                          <div key={`${s.name}-${i}`} style={{ background: "rgba(255,255,255,0.75)", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
-                            <div style={{ fontWeight: 800 }}>Stop {s.stop_order || i + 1}: {s.name}</div>
-                            <div style={{ marginTop: 2 }}>{s.description}</div>
-                            <div style={{ marginTop: 4, color: "var(--gray-500)" }}>
-                              {s.lat && s.lng ? `${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}` : "Coordinates pending"}
-                            </div>
-                            {s.maps_url && (
-                              <a href={s.maps_url} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 4, color: "var(--teal-dark)", fontWeight: 700 }}>
-                                Open in Google Maps
-                              </a>
-                            )}
-                          </div>
-                        ))
-                      )}
-                    </div>
+                  <div
+                    className="map-placeholder"
+                    style={{
+                      padding: 0,
+                      alignItems: "stretch",
+                      justifyContent: "center",
+                      display: "flex",
+                    }}
+                  >
+                    {mapEmbedUrl && (
+                      <div
+                        style={{
+                          width: "94%",
+                          height: "92%",
+                          margin: "3%",
+                          borderRadius: 18,
+                          overflow: "hidden",
+                          boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+                          background: "#e5f7fb",
+                        }}
+                      >
+                        <iframe
+                          title="Trip route"
+                          src={mapEmbedUrl}
+                          width="100%"
+                          height="100%"
+                          style={{ border: 0 }}
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
