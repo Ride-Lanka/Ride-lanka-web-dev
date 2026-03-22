@@ -77,12 +77,50 @@ function buildMapEmbedUrl(stops, preference = "shortest") {
   return `https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_KEY}&center=${defaultLat},${defaultLng}&zoom=7&maptype=roadmap`;
 }
 
+/** Firebase may store status in different casing or omit it — normalize for UI + filters */
+function normalizeTripStatus(raw) {
+  if (raw == null || raw === "") return "Upcoming";
+  const s = String(raw).trim().toLowerCase();
+  if (s === "active") return "Active";
+  if (s === "completed" || s === "complete") return "Completed";
+  if (s === "upcoming" || s === "planned") return "Upcoming";
+  return "Upcoming";
+}
+
+/** Format trip_date (often YYYY-MM-DD) for list cards without timezone shift */
+function formatTripDateForDisplay(value) {
+  if (value == null || value === "") return "Date TBD";
+  const trimmed = String(value).trim();
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (ymd) {
+    const y = Number(ymd[1]);
+    const m = Number(ymd[2]) - 1;
+    const d = Number(ymd[3]);
+    return new Date(y, m, d).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  }
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return trimmed;
+  return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+const TRIP_FILTER_TABS = [
+  { id: "all", label: "All Trips" },
+  { id: "Upcoming", label: "Upcoming" },
+  { id: "Active", label: "Active" },
+  { id: "Completed", label: "Completed" },
+];
+
 export default function TripsScreen({ active, showScreen }) {
   const { token } = useAuth();
 
   const [userTrips, setUserTrips] = useState([]);
   const [loadingTrips, setLoadingTrips] = useState(true);
   const [activeTrip, setActiveTrip] = useState(null);
+  const [tripFilter, setTripFilter] = useState("all");
 
   const [mode, setMode] = useState("list"); // list, new, view
   const [tripName, setTripName] = useState("");
@@ -118,7 +156,7 @@ export default function TripsScreen({ active, showScreen }) {
 
   async function handleToggleTripStatus() {
      if (!activeTrip) return;
-     const currentStatus = activeTrip.status || "Upcoming";
+     const currentStatus = normalizeTripStatus(activeTrip.status);
      // State machine: Upcoming -> Active -> Completed -> Upcoming
      const newStatus = currentStatus === "Upcoming" ? "Active" : 
                        (currentStatus === "Active" ? "Completed" : "Upcoming");
@@ -159,6 +197,11 @@ export default function TripsScreen({ active, showScreen }) {
   const listMapEmbedUrl = useMemo(() => buildMapEmbedUrl([]), []);
   const activeTripMapUrl = useMemo(() => buildMapEmbedUrl(activeTrip?.stops || []), [activeTrip]);
 
+  const displayedTrips = useMemo(() => {
+    if (tripFilter === "all") return userTrips;
+    return userTrips.filter((t) => normalizeTripStatus(t.status) === tripFilter);
+  }, [userTrips, tripFilter]);
+
   useEffect(() => {
     if (token && active) {
       loadTrips();
@@ -169,7 +212,16 @@ export default function TripsScreen({ active, showScreen }) {
     try {
       setLoadingTrips(true);
       const data = await getUserTrips(token);
-      setUserTrips(data.trips || []);
+      const trips = (data.trips || []).map((t) => ({
+        ...t,
+        status: normalizeTripStatus(t.status),
+      }));
+      setUserTrips(trips);
+      setActiveTrip((prev) => {
+        if (!prev?.id) return prev;
+        const fresh = trips.find((x) => x.id === prev.id);
+        return fresh ?? prev;
+      });
     } catch (err) {
       console.error("Failed to load trips", err);
     } finally {
@@ -338,10 +390,22 @@ export default function TripsScreen({ active, showScreen }) {
             <div className="trips-layout">
               <div>
                 <div className="trip-steps">
-                  <div className="step-btn active">All Trips</div>
-                  <div className="step-btn">Upcoming</div>
-                  <div className="step-btn">Active</div>
-                  <div className="step-btn">Completed</div>
+                  {TRIP_FILTER_TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      className={`step-btn${tripFilter === tab.id ? " active" : ""}`}
+                      onClick={() => setTripFilter(tab.id)}
+                      style={{
+                        border: "none",
+                        background: tripFilter === tab.id ? undefined : "transparent",
+                        cursor: "pointer",
+                        font: "inherit",
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
                 {loadingTrips ? (
                   <div style={{ padding: 20, textAlign: "center", color: "var(--gray-500)" }}>Loading your trips...</div>
@@ -351,27 +415,37 @@ export default function TripsScreen({ active, showScreen }) {
                     <h3 style={{ color: "var(--gray-800)", marginBottom: 8 }}>No trips saved yet</h3>
                     <p>Click "New Trip" to start planning your adventure!</p>
                   </div>
-                ) : userTrips.map((t, i) => {
+                ) : displayedTrips.length === 0 ? (
+                  <div style={{ padding: 32, textAlign: "center", color: "var(--gray-500)", background: "white", borderRadius: 16, marginTop: 20 }}>
+                    <p>No trips in this category.</p>
+                    <button type="button" className="btn-teal" style={{ marginTop: 12, width: "auto", padding: "10px 20px" }} onClick={() => setTripFilter("all")}>
+                      Show all trips
+                    </button>
+                  </div>
+                ) : (
+                  displayedTrips.map((t, i) => {
+                  const status = normalizeTripStatus(t.status);
                   const firstStopPhoto = t.stops?.[0]?.photo_url || "https://images.unsplash.com/photo-1544487661-04e8d38cb71f?w=300&q=80";
                   return (
-                    <div key={t.id || i} className="trip-card" onClick={() => { setActiveTrip(t); setMode("view"); }} style={{ cursor: "pointer" }}>
+                    <div key={t.id || i} className="trip-card" onClick={() => { setActiveTrip({ ...t, status }); setMode("view"); }} style={{ cursor: "pointer" }}>
                       <div className="trip-card-img"><img src={firstStopPhoto} alt={t.trip_name} style={{ objectFit: "cover", width: "100%", height: "100%" }} /></div>
                       <div className="trip-card-body">
                         <h4>{t.trip_name}</h4>
                         <div className="meta" style={{ marginTop: 6 }}>
-                          <span>📅 {t.trip_date || "Upcoming"}</span>
+                          <span>📅 {formatTripDateForDisplay(t.trip_date)}</span>
                           <span>📍 {t.stop_count || t.stops?.length || 0} stops</span>
                         </div>
                         <div style={{ fontSize: 13, color: "var(--gray-500)", marginTop: 6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                           Starts at: {t.stops?.[0]?.name || "Unknown"}
                         </div>
                       </div>
-                      <div className={`trip-status`} style={{ background: t.status === "Active" ? "#10b981" : (t.status === "Completed" ? "var(--teal-dark)" : "var(--teal-light)"), color: t.status === "Upcoming" || !t.status ? "var(--teal-dark)" : "white", fontWeight: 700 }}>
-                        {t.status || "Upcoming"}
+                      <div className={`trip-status`} style={{ background: status === "Active" ? "#10b981" : (status === "Completed" ? "var(--teal-dark)" : "var(--teal-light)"), color: status === "Upcoming" ? "var(--teal-dark)" : "white", fontWeight: 700 }}>
+                        {status}
                       </div>
                     </div>
                   );
-                })}
+                })
+                )}
               </div>
               <div className="map-panel">
                 <div className="map-placeholder" style={{ padding: 0, display: "flex", alignItems: "stretch", justifyContent: "center" }}>
@@ -420,7 +494,7 @@ export default function TripsScreen({ active, showScreen }) {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
                     <div>
                       <h3 style={{ fontSize: 20, fontWeight: 800 }}>{activeTrip.trip_name}</h3>
-                      <div style={{ fontSize: 13, color: "var(--gray-500)", marginTop: 4 }}>{activeTrip.trip_date || "Upcoming Dates"}</div>
+                      <div style={{ fontSize: 13, color: "var(--gray-500)", marginTop: 4 }}>{formatTripDateForDisplay(activeTrip.trip_date)}</div>
                     </div>
                     <button 
                        onClick={handleToggleTripStatus}
@@ -428,12 +502,12 @@ export default function TripsScreen({ active, showScreen }) {
                        style={{ 
                          cursor: "pointer", 
                          border: "none", 
-                         background: activeTrip.status === "Active" ? "#10b981" : (activeTrip.status === "Completed" ? "var(--teal-dark)" : "var(--gray-200)"), 
-                         color: activeTrip.status === "Upcoming" || !activeTrip.status ? "var(--gray-800)" : "white",
+                         background: normalizeTripStatus(activeTrip.status) === "Active" ? "#10b981" : (normalizeTripStatus(activeTrip.status) === "Completed" ? "var(--teal-dark)" : "var(--gray-200)"), 
+                         color: normalizeTripStatus(activeTrip.status) === "Upcoming" ? "var(--gray-800)" : "white",
                          fontWeight: 700
                        }}
                     >
-                      {activeTrip.status === "Active" ? "Active (Click to Complete)" : (activeTrip.status === "Completed" ? "Completed (Click to Reset)" : "Upcoming (Click to Start)")}
+                      {normalizeTripStatus(activeTrip.status) === "Active" ? "Active (Click to Complete)" : (normalizeTripStatus(activeTrip.status) === "Completed" ? "Completed (Click to Reset)" : "Upcoming (Click to Start)")}
                     </button>
                   </div>
 
