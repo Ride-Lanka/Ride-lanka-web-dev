@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "../Sidebar";
 import { useAuth } from "@/context/AuthContext";
-import { getUserProfile } from "@/lib/api";
+import { getUserProfile, saveUserProfile } from "@/lib/api";
 
 function getLevelDetails(xp) {
   const x = xp || 0;
@@ -20,9 +20,13 @@ function getLevelDetails(xp) {
 }
 
 export default function ProfileScreen({ active, showScreen }) {
-  const { user, token, logOut } = useAuth();
+  const { user, token, logOut, updateUserEmail, updateUserPassword } = useAuth();
   const [profile, setProfile] = useState(null);
-  const displayName = user?.displayName || user?.email?.split("@")[0] || "traveler";
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", email: "", bio: "", password: "", profilePic: "" });
+
+  const displayName = profile?.name || user?.displayName || user?.email?.split("@")[0] || "traveler";
 
   async function handleLogout() {
     await logOut();
@@ -35,17 +39,129 @@ export default function ProfileScreen({ active, showScreen }) {
     }
   }, [active, token]);
 
+  function handleEditClick() {
+    setEditForm({
+      name: profile?.name || displayName,
+      email: user?.email || "",
+      bio: profile?.bio || "",
+      password: "",
+      profilePic: profile?.profilePic || ""
+    });
+    setIsEditing(true);
+  }
+
+  function handleFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setEditForm(prev => ({ ...prev, profilePic: ev.target.result }));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      if (editForm.password) {
+        await updateUserPassword(editForm.password);
+      }
+      if (editForm.email !== user.email) {
+        await updateUserEmail(editForm.email);
+      }
+      await saveUserProfile(token, {
+        name: editForm.name,
+        email: editForm.email,
+        bio: editForm.bio,
+        profilePic: editForm.profilePic
+      });
+      // reload profile
+      const updated = await getUserProfile(token);
+      setProfile(updated);
+      setIsEditing(false);
+      alert("Profile updated successfully!");
+    } catch (err) {
+      alert("Failed to update profile: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div id="screen-profile" className={`screen ${active ? "active" : ""}`}>
       <div className="main-layout">
         <Sidebar activeItem="profile" userName={displayName} userRole="Trip planner for Sri Lanka" onNavigate={showScreen} />
         <div className="main-content">
-          <div className="topbar"><h1>Profile</h1></div>
+          <div className="topbar">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <h1>Profile</h1>
+              {!isEditing && (
+                <button className="btn-primary" onClick={handleEditClick} style={{ padding: "8px 16px", fontSize: "0.95rem", background: "var(--teal)", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>
+                  ✎ Edit Profile
+                </button>
+              )}
+            </div>
+          </div>
+          
           <div style={{ marginTop: 24 }}>
-            <p><strong>Name:</strong> {displayName}</p>
-            <p><strong>Email:</strong> {user?.email || "-"}</p>
+            {!isEditing && (
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "24px", marginBottom: 32 }}>
+                {profile?.profilePic ? (
+                  <img src={profile.profilePic} style={{ width: 100, height: 100, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gray-200)" }} alt="Profile Avatar" />
+                ) : (
+                  <div style={{ width: 100, height: 100, borderRadius: "50%", background: "var(--teal-light)", color: "var(--teal-dark)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2.5rem", fontWeight: "bold" }}>
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <h2 style={{ margin: "0 0 8px 0", fontSize: "1.8rem", color: "var(--text-main)" }}>{displayName}</h2>
+                  <p style={{ margin: "0 0 12px 0", color: "var(--gray-600)", fontSize: "1rem" }}>{user?.email || "-"}</p>
+                  {profile?.bio && <p style={{ margin: "0", color: "var(--text-light)", fontStyle: "italic", lineHeight: "1.5" }}>"{profile.bio}"</p>}
+                </div>
+              </div>
+            )}
 
-            {profile && (
+            {isEditing && (
+              <form onSubmit={handleSave} style={{ marginBottom: 32, padding: 24, background: "white", borderRadius: 12, boxShadow: "var(--shadow-sm)" }}>
+                <h2 style={{ fontSize: "1.2rem", marginBottom: "20px" }}>Edit Profile</h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div>
+                    <label style={{ display: "block", marginBottom: 6, fontWeight: "500" }}>Profile Picture (PNG/JPG)</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                      {editForm.profilePic && <img src={editForm.profilePic} style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover" }} alt="Avatar Preview" />}
+                      <input type="file" accept="image/png, image/jpeg" onChange={handleFileChange} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", marginBottom: 6, fontWeight: "500" }}>Name</label>
+                    <input type="text" className="input-field" value={editForm.name} onChange={e => setEditForm(prev => ({...prev, name: e.target.value}))} required />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", marginBottom: 6, fontWeight: "500" }}>Email <small style={{ fontWeight: "normal", color: "var(--gray-500)" }}>(Requires recent login to change)</small></label>
+                    <input type="email" className="input-field" value={editForm.email} onChange={e => setEditForm(prev => ({...prev, email: e.target.value}))} required disabled={user?.isDevAdmin} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", marginBottom: 6, fontWeight: "500" }}>Bio</label>
+                    <textarea className="input-field" rows={3} value={editForm.bio} onChange={e => setEditForm(prev => ({...prev, bio: e.target.value}))} placeholder="Tell us about yourself..." />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", marginBottom: 6, fontWeight: "500" }}>New Password <small style={{ fontWeight: "normal", color: "var(--gray-500)" }}>(Leave blank to keep current)</small></label>
+                    <input type="password" className="input-field" value={editForm.password} onChange={e => setEditForm(prev => ({...prev, password: e.target.value}))} placeholder="••••••••" disabled={user?.isDevAdmin} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "12px", marginTop: 24 }}>
+                  <button type="submit" className="btn-primary" disabled={saving}>
+                    {saving ? "Saving..." : "Save Changes"}
+                  </button>
+                  <button type="button" className="btn-outline" onClick={() => setIsEditing(false)} disabled={saving}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {!isEditing && profile && (
               <div style={{ 
                 marginTop: 24, 
                 padding: "24px", 
