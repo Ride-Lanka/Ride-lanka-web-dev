@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import Sidebar from "../Sidebar";
 import { useAuth } from "@/context/AuthContext";
-import { getQuests, completeQuest } from "@/lib/api";
+import { getQuests, completeQuest, getUserProfile } from "@/lib/api";
 
 export default function QuestsScreen({ active, showScreen }) {
   const { user, token } = useAuth();
   const [quests, setQuests] = useState([]);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [completingId, setCompletingId] = useState(null);
   const displayName = user?.displayName || user?.email?.split("@")[0] || "traveler";
@@ -21,10 +22,14 @@ export default function QuestsScreen({ active, showScreen }) {
   async function loadQuests() {
     try {
       setLoading(true);
-      const res = await getQuests(token);
+      const [res, prof] = await Promise.all([
+        getQuests(token),
+        getUserProfile(token)
+      ]);
       setQuests(res.quests || []);
+      setProfile(prof);
     } catch (err) {
-      console.error("Failed to load quests:", err);
+      console.error("Failed to load quests/profile:", err);
     } finally {
       setLoading(false);
     }
@@ -36,6 +41,8 @@ export default function QuestsScreen({ active, showScreen }) {
       setCompletingId(questId);
       const res = await completeQuest(token, questId);
       alert(`Quest completed! You gained ${res.xpGained} XP. Check your profile.`);
+      // Re-fetch to update completedQuests array
+      await loadQuests();
     } catch (err) {
       alert("Failed to complete quest: " + err.message);
     } finally {
@@ -97,14 +104,20 @@ export default function QuestsScreen({ active, showScreen }) {
                     </div>
                     <p style={{ margin: 0, color: "var(--text-main)", lineHeight: "1.5" }}>{q.description}</p>
                     <div style={{ marginTop: "12px" }}>
-                      <button 
-                        className="btn-outline" 
-                        style={{ fontSize: "0.9rem", padding: "6px 12px", border: "2px solid var(--teal)", color: "var(--teal)", background: "transparent", cursor: completingId === q.id ? "not-allowed" : "pointer" }}
-                        onClick={() => handleCompleteQuest(q.id)}
-                        disabled={completingId === q.id}
-                      >
-                        {completingId === q.id ? "Completing..." : "✓ Complete Quest"}
-                      </button>
+                      {profile?.completedQuests?.includes(q.id) ? (
+                        <button className="btn-outline" style={{ fontSize: "0.9rem", padding: "6px 12px", border: "2px solid var(--gray-400)", color: "var(--gray-600)", background: "var(--gray-100)", cursor: "not-allowed" }} disabled>
+                          ✓ Completed
+                        </button>
+                      ) : (
+                        <button 
+                          className="btn-outline" 
+                          style={{ fontSize: "0.9rem", padding: "6px 12px", border: "2px solid var(--teal)", color: "var(--teal)", background: "transparent", cursor: completingId === q.id ? "not-allowed" : "pointer" }}
+                          onClick={() => handleCompleteQuest(q.id)}
+                          disabled={completingId === q.id}
+                        >
+                          {completingId === q.id ? "Completing..." : "Complete Quest"}
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
