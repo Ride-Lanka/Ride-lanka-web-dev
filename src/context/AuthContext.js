@@ -6,6 +6,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  updateEmail,
+  updatePassword
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { saveUserProfile, refreshRecommendations } from "@/lib/api";
@@ -24,7 +26,7 @@ function createDevAdminUser() {
     email: ADMIN_EMAIL,
     displayName: "Administrator",
     isDevAdmin: true,
-    getIdToken: async () => null,
+    getIdToken: async () => "dev-admin-token",
   };
 }
 
@@ -151,8 +153,21 @@ export function AuthProvider({ children }) {
     setToken(null);
   }
 
+  async function updateUserEmail(newEmail) {
+    if (user?.isDevAdmin) throw new Error("Cannot change email for demo admin.");
+    if (!auth.currentUser) throw new Error("No user logged in");
+    await updateEmail(auth.currentUser, newEmail);
+    setUser({...auth.currentUser});
+  }
+
+  async function updateUserPassword(newPassword) {
+    if (user?.isDevAdmin) throw new Error("Cannot change password for demo admin.");
+    if (!auth.currentUser) throw new Error("No user logged in");
+    await updatePassword(auth.currentUser, newPassword);
+  }
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, signIn, signUp, logOut }}>
+    <AuthContext.Provider value={{ user, token, loading, signIn, signUp, logOut, updateUserEmail, updateUserPassword }}>
       {children}
     </AuthContext.Provider>
   );
