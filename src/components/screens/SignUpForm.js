@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useSettings } from "@/context/SettingsContext";
 
 const INTEREST_OPTIONS = [
   { id: "culture", label: "Culture" },
@@ -16,6 +17,7 @@ const INTEREST_OPTIONS = [
 
 export default function SignUpForm({ onSignUp }) {
   const { signUp } = useAuth();
+  const { t } = useSettings();
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -30,7 +32,7 @@ export default function SignUpForm({ onSignUp }) {
 
   async function handleSubmit() {
     if (interests.length === 0) {
-      setError("Please select at least one interest.");
+      setError(t("signupErrorSelectInterest"));
       return;
     }
     setLoading(true);
@@ -39,7 +41,7 @@ export default function SignUpForm({ onSignUp }) {
       await signUp(email, password, name, interests);
       onSignUp();
     } catch (e) {
-      setError(e.message || "Sign up failed. Please try again.");
+      setError(e.message || t("signupErrorFailed"));
     } finally {
       setLoading(false);
     }
@@ -49,10 +51,10 @@ export default function SignUpForm({ onSignUp }) {
     <div id="tab-signup" className="auth-form">
       {step === 1 && (
         <>
-          <h3>Create your account</h3>
-          <p className="subtitle">Start planning your Sri Lanka adventure</p>
+          <h3>{t("signupTitle")}</h3>
+          <p className="subtitle">{t("signupSubtitle")}</p>
           <div className="form-group">
-            <label>Full Name</label>
+            <label>{t("signupFullName")}</label>
             <input type="text" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="form-group">
@@ -67,18 +69,18 @@ export default function SignUpForm({ onSignUp }) {
             className="btn-teal"
             onClick={() => {
               if (!name || !email || !password) {
-                setError("Please fill in all fields.");
+                setError(t("signupErrorFillAll"));
                 return;
               }
               if (password.length < 6) {
-                setError("Password must be at least 6 characters.");
+                setError(t("signupErrorPasswordLen"));
                 return;
               }
               setError("");
               setStep(2);
             }}
           >
-            Next
+            {t("signupNext")}
           </button>
           {error && <p style={{ color: "red", marginTop: 8, fontSize: 13 }}>{error}</p>}
         </>
@@ -86,8 +88,8 @@ export default function SignUpForm({ onSignUp }) {
 
       {step === 2 && (
         <>
-          <h3>Select your interests</h3>
-          <p className="subtitle">We use these to generate AI recommendations.</p>
+          <h3>{t("signupInterestsTitle")}</h3>
+          <p className="subtitle">{t("signupInterestsSubtitle")}</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, margin: "16px 0" }}>
             {INTEREST_OPTIONS.map((opt) => (
               <button
@@ -112,14 +114,14 @@ export default function SignUpForm({ onSignUp }) {
           {error && <p style={{ color: "red", marginBottom: 8, fontSize: 13 }}>{error}</p>}
 
           <button className="btn-teal" onClick={handleSubmit} disabled={loading}>
-            {loading ? "Creating account..." : "Create Account"}
+            {loading ? t("signupCreating") : t("signupCreateAccount")}
           </button>
           <button
             type="button"
             style={{ marginTop: 10, fontSize: 13, color: "#888", cursor: "pointer", background: "none", border: "none" }}
             onClick={() => setStep(1)}
           >
-            Back
+            {t("signupBack")}
           </button>
         </>
       )}

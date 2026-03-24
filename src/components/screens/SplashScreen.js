@@ -1,26 +1,24 @@
 "use client";
+import { useSettings } from "@/context/SettingsContext";
 
 export default function SplashScreen({ active, onGetStarted, onSignIn }) {
+  const { t } = useSettings();
   return (
     <div id="screen-splash" className={`screen ${active ? "active" : ""}`}>
       <div className="splash-content">
         <div className="splash-logo">🌍</div>
         <h1>
-          Ready to Dream?
+          {t("splashTitleLine1")}
           <br />
-          Let&apos;s Travel.
+          {t("splashTitleLine2")}
         </h1>
-        <p>
-          Discover breathtaking destinations, plan unforgettable trips,
-          <br />
-          and connect with a global community of explorers.
-        </p>
+        <p>{t("splashSubtitle")}</p>
         <div className="splash-actions">
           <button className="btn-primary" onClick={onGetStarted}>
-            Get Started
+            {t("splashGetStarted")}
           </button>
           <button className="btn-outline" onClick={onSignIn}>
-            Sign In
+            {t("splashSignIn")}
           </button>
         </div>
         <div className="splash-dots">
