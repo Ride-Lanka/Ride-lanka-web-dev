@@ -1,22 +1,24 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 
 const WishlistContext = createContext(null);
 
 export function WishlistProvider({ children }) {
-  const [wishlist, setWishlist] = useState(() => {
-    // Persist across reloads using localStorage
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("ride_lanka_wishlist");
-        return saved ? JSON.parse(saved) : [];
-      } catch {
-        return [];
-      }
+  // Always start with [] on both server and client to avoid SSR mismatch
+  const [wishlist, setWishlist] = useState([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Load from localStorage only after mount (client-only)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("ride_lanka_wishlist");
+      if (saved) setWishlist(JSON.parse(saved));
+    } catch {
+      // ignore parse errors
     }
-    return [];
-  });
+    setHydrated(true);
+  }, []);
 
   const saveToStorage = (items) => {
     if (typeof window !== "undefined") {
