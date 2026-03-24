@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import Sidebar from "../Sidebar";
 import { useAuth } from "@/context/AuthContext";
 import { getQuests, completeQuest, getUserProfile } from "@/lib/api";
+import { useSettings } from "@/context/SettingsContext";
 
 export default function QuestsScreen({ active, showScreen }) {
   const { user, token } = useAuth();
+  const { t } = useSettings();
   const [quests, setQuests] = useState([]);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -53,33 +55,31 @@ export default function QuestsScreen({ active, showScreen }) {
   return (
     <div id="screen-quests" className={`screen ${active ? "active" : ""}`}>
       <div className="main-layout">
-        <Sidebar activeItem="quests" userName={displayName} userRole="Trip planner for Sri Lanka" onNavigate={showScreen} />
+        <Sidebar activeItem="quests" userName={displayName} userRole={t("appRoleTripPlanner")} onNavigate={showScreen} />
         
         <div className="main-content">
           <div className="topbar">
-            <h1>Quests & Challenges</h1>
+            <h1>{t("questsTitle")}</h1>
           </div>
           
           <div className="quests-container" style={{ marginTop: 24, padding: "0 16px" }}>
-            <p style={{ color: "var(--text-light)", marginBottom: "24px" }}>
-              Complete these quests to earn rewards and upgrade your traveler status!
-            </p>
+            <p style={{ color: "var(--gray-600)", marginBottom: "24px" }}>{t("questsSubtitle")}</p>
 
             {loading ? (
-              <p>Loading quests...</p>
+              <p>{t("questsLoading")}</p>
             ) : quests.length === 0 ? (
-              <div style={{ padding: "32px", textAlign: "center", background: "var(--bg-card)", borderRadius: "12px" }}>
-                <p>No quests available right now. Check back later!</p>
+              <div style={{ padding: "32px", textAlign: "center", background: "var(--white)", borderRadius: "12px", border: "1px solid var(--gray-100)", boxShadow: "var(--shadow-sm)" }}>
+                <p>{t("questsEmpty")}</p>
               </div>
             ) : (
               <div style={{ display: "grid", gap: "16px" }}>
                 {quests.map((q) => (
                   <div key={q.id} style={{ 
-                    background: "var(--bg-card)", 
+                    background: "var(--white)", 
                     padding: "20px", 
                     borderRadius: "12px", 
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-                    border: "1px solid var(--border-color)",
+                    boxShadow: "var(--shadow-sm)",
+                    border: "1px solid var(--gray-100)",
                     display: "flex",
                     flexDirection: "column",
                     gap: "8px"
@@ -89,7 +89,7 @@ export default function QuestsScreen({ active, showScreen }) {
                         {q.badgeImage && (
                           <img src={q.badgeImage} alt="badge" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }} />
                         )}
-                        <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--primary)" }}>{q.title}</h3>
+                        <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--text)" }}>{q.title}</h3>
                       </div>
                       <span style={{ 
                         background: "var(--teal-light)", 
@@ -102,11 +102,11 @@ export default function QuestsScreen({ active, showScreen }) {
                         {q.reward}
                       </span>
                     </div>
-                    <p style={{ margin: 0, color: "var(--text-main)", lineHeight: "1.5" }}>{q.description}</p>
+                    <p style={{ margin: 0, color: "var(--gray-600)", lineHeight: "1.5" }}>{q.description}</p>
                     <div style={{ marginTop: "12px" }}>
                       {profile?.completedQuests?.includes(q.id) ? (
                         <button className="btn-outline" style={{ fontSize: "0.9rem", padding: "6px 12px", border: "2px solid var(--gray-400)", color: "var(--gray-600)", background: "var(--gray-100)", cursor: "not-allowed" }} disabled>
-                          ✓ Completed
+                          {t("questsCompleted")}
                         </button>
                       ) : (
                         <button 
@@ -115,7 +115,7 @@ export default function QuestsScreen({ active, showScreen }) {
                           onClick={() => handleCompleteQuest(q.id)}
                           disabled={completingId === q.id}
                         >
-                          {completingId === q.id ? "Completing..." : "Complete Quest"}
+                          {completingId === q.id ? t("questsCompleting") : t("questsCompleteQuest")}
                         </button>
                       )}
                     </div>
