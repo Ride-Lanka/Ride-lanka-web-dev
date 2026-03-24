@@ -5,7 +5,7 @@ import LoginForm from "./LoginForm";
 import SignUpForm from "./SignUpForm";
 import { useSettings } from "@/context/SettingsContext";
 
-export default function AuthScreen({ active, onSignIn, onSignUp }) {
+export default function AuthScreen({ active, onSignIn, onSignUp, onBack, guideIntent = false }) {
   const [activeTab, setActiveTab] = useState("login");
   const { t } = useSettings();
 
@@ -24,6 +24,19 @@ export default function AuthScreen({ active, onSignIn, onSignUp }) {
     <div id="screen-auth" className={`screen ${active ? "active" : ""}`}>
       <div className="auth-visual-bg" aria-hidden />
       <div className="auth-visual-grid" aria-hidden />
+      
+      <button 
+        type="button" 
+        className="auth-back-btn" 
+        onClick={onBack}
+        aria-label="Back to splash"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        <span>{t("Back") || "Back"}</span>
+      </button>
+
       <div className="auth-layout">
         <div className="auth-copy">
           <h2>
@@ -35,6 +48,11 @@ export default function AuthScreen({ active, onSignIn, onSignUp }) {
         </div>
         <div className="auth-shell">
           <div className="auth-card auth-card--tech">
+            {guideIntent ? (
+              <div className="auth-guide-banner" role="status">
+                {t("authGuideBanner")}
+              </div>
+            ) : null}
             <div className="auth-brand">
               <span className="auth-brand-mark" aria-hidden />
               <div className="auth-brand-text">
