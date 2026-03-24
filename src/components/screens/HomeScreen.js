@@ -358,12 +358,12 @@ const [activeCategory, setActiveCategory] = useState("beach");
           <div className="section-header" style={{ marginTop: "40px" }}><h3>{t("homeTripStyle")}</h3></div>
           <div className="categories">
             {[
-              { id: "beach", label: "Beach and Relax" },
-              { id: "hill", label: "Hill Country" },
-              { id: "cultural", label: "Cultural Triangle" },
-              { id: "nature", label: "Nature and Wildlife" },
-              { id: "food", label: "Food and Local Life" },
-              { id: "family", label: "Family Friendly" },
+              { id: "beach", label: t("catBeach") },
+              { id: "hill", label: t("catHill") },
+              { id: "cultural", label: t("catCultural") },
+              { id: "nature", label: t("catNature") },
+              { id: "food", label: t("catFood") },
+              { id: "family", label: t("catFamily") },
             ].map((cat) => (
               <div key={cat.id} className={`cat-chip ${activeCategory === cat.id ? "active" : ""}`} onClick={() => setActiveCategory(cat.id)} role="button" tabIndex={0}>
                 {cat.label}
