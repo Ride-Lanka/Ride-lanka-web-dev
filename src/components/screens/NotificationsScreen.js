@@ -14,7 +14,7 @@ export default function NotificationsScreen({ active, showScreen }) {
       <div className="main-layout">
         <Sidebar activeItem="notif" userName={displayName} userRole={t("appRoleTripPlanner")} onNavigate={showScreen} />
         <div className="main-content">
-          <div className="topbar"><h1>{t("navNotifications")}</h1></div>
+          <div className="topbar"><h1>{t("Notifications")}</h1></div>
           <p style={{ color: "var(--gray-600)", marginTop: 24 }}>{t("notificationsEmpty")}</p>
         </div>
       </div>

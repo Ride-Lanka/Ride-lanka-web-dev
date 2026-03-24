@@ -33,6 +33,7 @@ const NAV = [
   { id: "dashboard", label: "Dashboard", icon: "📊" },
   { id: "quests", label: "Quests", icon: "🎯" },
   { id: "users", label: "Users", icon: "👥" },
+  { id: "guides", label: "Tour Guides", icon: "🧑‍🏫" },
   { id: "trips", label: "Trips & routes", icon: "🗺️" },
   { id: "explore", label: "Explore CMS", icon: "📰" },
   { id: "engagement", label: "Engagement", icon: "💬" },
@@ -111,6 +112,7 @@ export default function AdminShell({ user, onLogout }) {
           {section === "dashboard" && <AdminDashboard />}
           {section === "quests" && <AdminQuests />}
           {section === "users" && <AdminUsers />}
+          {section === "guides" && <AdminGuides />}
           {section === "trips" && <AdminTrips />}
           {section === "explore" && <AdminExploreCMS />}
           {section === "engagement" && <AdminEngagement />}
@@ -1577,6 +1579,178 @@ function AdminExploreCMS() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+function AdminGuides() {
+  const [guides, setGuides] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingId, setUpdatingId] = useState("");
+
+  useEffect(() => {
+    const guidesRef = collection(db, "dyourguides");
+    const q = query(guidesRef, orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setGuides(rows);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Failed to load guides:", err);
+        setError(err.message || "Failed to load guides");
+        setLoading(false);
+      }
+    );
+    return () => unsub();
+  }, []);
+
+  const getStatus = (g) => {
+    const raw = g.status || "active";
+    const s = String(raw).toLowerCase();
+    if (s === "blocked") return "blocked";
+    if (s === "suspended") return "suspended";
+    return "active";
+  };
+
+  const updateGuideStatus = async (guideId, nextStatus) => {
+    try {
+      setUpdatingId(guideId);
+      await updateDoc(doc(db, "dyourguides", guideId), {
+        status: nextStatus,
+        moderationUpdatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("Failed to update guide status:", err);
+      alert(`Failed to update status: ${err.message}`);
+    } finally {
+      setUpdatingId("");
+    }
+  };
+
+  const badgeClassByStatus = (status) => {
+    if (status === "active") return "admin-badge admin-badge-teal";
+    if (status === "suspended") return "admin-badge admin-badge-amber";
+    return "admin-badge admin-badge-danger";
+  };
+
+  const formatDate = (value) => {
+    if (!value) return "—";
+    if (typeof value?.toDate === "function") return value.toDate().toLocaleDateString();
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
+  };
+
+  return (
+    <div className="admin-panel">
+      <h2>Verified Tour Guides</h2>
+      <p className="admin-placeholder" style={{ marginBottom: 20 }}>
+        Managing professional guide accounts from <code style={{ background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>dyourguides</code>.
+        Control listing visibility and account standing.
+      </p>
+
+      {error && <p style={{ color: "#ef4444", marginBottom: 12 }}>{error}</p>}
+      
+      <div className="admin-table-wrap">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Guide Profile</th>
+              <th>Email</th>
+              <th>Expertise</th>
+              <th>Rate</th>
+              <th>Joined</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan="7">Loading guides...</td></tr>
+            ) : guides.length === 0 ? (
+              <tr><td colSpan="7">No guides found in Firestore.</td></tr>
+            ) : (
+              guides.map((g) => {
+                const status = getStatus(g);
+                const isUpdating = updatingId === g.id;
+                return (
+                  <tr key={g.id}>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        {g.photoUrl ? (
+                          <img src={g.photoUrl} alt="" style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }} />
+                        ) : (
+                          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--teal)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 12 }}>
+                            {String(g.displayName || g.name || "?").charAt(0)}
+                          </div>
+                        )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <strong>{g.displayName || g.name || "Unnamed Guide"}</strong>
+                          <span style={{ fontSize: 11, color: "#64748b" }}>{g.location || "No base"}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span style={{ fontSize: 13 }}>{g.email}</span></td>
+                    <td>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {(g.expertise || []).slice(0, 2).map(ex => (
+                          <span key={ex} className="admin-badge admin-badge-slate" style={{ fontSize: 10 }}>{ex}</span>
+                        ))}
+                        {(g.expertise || []).length > 2 && <span style={{ fontSize: 10, color: "#94a3b8" }}>+{g.expertise.length - 2}</span>}
+                      </div>
+                    </td>
+                    <td>{g.hourlyRate ? `${g.hourlyRate}` : "—"}</td>
+                    <td>{formatDate(g.createdAt)}</td>
+                    <td><span className={badgeClassByStatus(status)}>{status}</span></td>
+                    <td>
+                      <div className="admin-user-actions">
+                        <button
+                          type="button"
+                          className="admin-btn-outline"
+                          style={{ fontSize: 11, border: '1px solid var(--teal)', color: 'var(--teal)' }}
+                          onClick={() => window.open(`/?guideId=${g.id}`, '_blank')}
+                        >
+                          View Profile 👁️
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-btn-outline"
+                          style={{ fontSize: 11 }}
+                          disabled={isUpdating || status === "active"}
+                          onClick={() => updateGuideStatus(g.id, "active")}
+                        >
+                          Activate
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-btn-outline admin-btn-warn"
+                          style={{ fontSize: 11 }}
+                          disabled={isUpdating || status === "suspended"}
+                          onClick={() => updateGuideStatus(g.id, "suspended")}
+                        >
+                          Suspend
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-btn-outline admin-btn-danger"
+                          style={{ fontSize: 11 }}
+                          disabled={isUpdating || status === "blocked"}
+                          onClick={() => updateGuideStatus(g.id, "blocked")}
+                        >
+                          Block
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

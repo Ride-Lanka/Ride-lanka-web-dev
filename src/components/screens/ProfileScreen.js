@@ -3,8 +3,11 @@
 import { useState, useEffect } from "react";
 import Sidebar from "../Sidebar";
 import { useAuth } from "@/context/AuthContext";
+import { useGuideAuth } from "@/context/GuideAuthContext";
 import { getUserProfile, saveUserProfile } from "@/lib/api";
+import { saveMyGuideProfile } from "@/lib/tourGuides";
 import { useSettings } from "@/context/SettingsContext";
+import { useAppMode } from "@/context/AppModeContext";
 
 function getLevelDetails(xp) {
   const x = xp || 0;
@@ -21,8 +24,13 @@ function getLevelDetails(xp) {
 }
 
 export default function ProfileScreen({ active, showScreen }) {
-  const { user, token, logOut, updateUserEmail, updateUserPassword } = useAuth();
+  const { user: travelerUser, token, logOut: travelerLogout, updateUserEmail, updateUserPassword } = useAuth();
+  const { guide: guideUser, guideLogOut } = useGuideAuth();
+  const { isGuideMode } = useAppMode();
   const { t } = useSettings();
+
+  const user = isGuideMode ? guideUser : travelerUser;
+  
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -38,30 +46,36 @@ export default function ProfileScreen({ active, showScreen }) {
     profilePic: "" 
   });
 
-  const displayName = profile?.name || user?.displayName || user?.email?.split("@")[0] || "traveler";
+  const displayName = isGuideMode 
+    ? (guideUser?.displayName || guideUser?.email?.split("@")[0] || "Guide")
+    : (profile?.name || travelerUser?.displayName || travelerUser?.email?.split("@")[0] || "traveler");
 
   async function handleLogout() {
-    await logOut();
-    showScreen("screen-auth");
+    if (isGuideMode) {
+      await guideLogOut();
+    } else {
+      await travelerLogout();
+    }
+    showScreen("screen-splash");
   }
 
   useEffect(() => {
-    if (active && token) {
+    if (active && !isGuideMode && token) {
       getUserProfile(token).then(setProfile).catch(console.error);
     }
-  }, [active, token]);
+  }, [active, token, isGuideMode]);
 
   function handleEditClick() {
     setEditForm({
-      firstName: profile?.firstName || profile?.name?.split(" ")[0] || "",
-      lastName: profile?.lastName || profile?.name?.split(" ").slice(1).join(" ") || "",
+      firstName: isGuideMode ? (guideUser?.displayName?.split(" ")[0] || "") : (profile?.firstName || profile?.name?.split(" ")[0] || ""),
+      lastName: isGuideMode ? (guideUser?.displayName?.split(" ").slice(1).join(" ") || "") : (profile?.lastName || profile?.name?.split(" ").slice(1).join(" ") || ""),
       email: user?.email || "",
       dob: profile?.dob || "",
       phoneNumber: profile?.phoneNumber || "",
-      bio: profile?.bio || "",
+      bio: isGuideMode ? (guideUser?.bio || "") : (profile?.bio || ""),
       password: "",
       confirmPassword: "",
-      profilePic: profile?.profilePic || ""
+      profilePic: isGuideMode ? (guideUser?.photoURL || "") : (profile?.profilePic || "")
     });
     setIsEditing(true);
   }
@@ -86,25 +100,36 @@ export default function ProfileScreen({ active, showScreen }) {
     }
 
     try {
-      if (editForm.password) {
-        await updateUserPassword(editForm.password);
+      if (isGuideMode) {
+        // Update guide profile in 'dyourguides'
+        await saveMyGuideProfile(guideUser, {
+          displayName: `${editForm.firstName} ${editForm.lastName}`.trim(),
+          email: editForm.email,
+          password: editForm.password || guideUser.password,
+          bio: editForm.bio,
+          photoURL: editForm.profilePic
+        });
+        alert("Account updated successfully! Please log in again if you changed your email or password.");
+      } else {
+        if (editForm.password) {
+          await updateUserPassword(editForm.password);
+        }
+        if (editForm.email !== travelerUser.email) {
+          await updateUserEmail(editForm.email);
+        }
+        await saveUserProfile(token, {
+          firstName: editForm.firstName,
+          lastName: editForm.lastName,
+          name: `${editForm.firstName} ${editForm.lastName}`.trim(),
+          email: editForm.email,
+          dob: editForm.dob,
+          phoneNumber: editForm.phoneNumber,
+          bio: editForm.bio,
+          profilePic: editForm.profilePic
+        });
+        const updated = await getUserProfile(token);
+        setProfile(updated);
       }
-      if (editForm.email !== user.email) {
-        await updateUserEmail(editForm.email);
-      }
-      await saveUserProfile(token, {
-        firstName: editForm.firstName,
-        lastName: editForm.lastName,
-        name: `${editForm.firstName} ${editForm.lastName}`.trim(),
-        email: editForm.email,
-        dob: editForm.dob,
-        phoneNumber: editForm.phoneNumber,
-        bio: editForm.bio,
-        profilePic: editForm.profilePic
-      });
-      // reload profile
-      const updated = await getUserProfile(token);
-      setProfile(updated);
       setIsEditing(false);
       alert("Profile updated successfully!");
     } catch (err) {
@@ -117,7 +142,7 @@ export default function ProfileScreen({ active, showScreen }) {
   return (
     <div id="screen-profile" className={`screen ${active ? "active" : ""}`}>
       <div className="main-layout">
-        <Sidebar activeItem="profile" userName={displayName} userRole={t("appRoleTripPlanner")} onNavigate={showScreen} />
+        <Sidebar activeItem="profile" userName={displayName} userRole={isGuideMode ? t("appRoleTourGuide") : t("appRoleTripPlanner")} onNavigate={showScreen} />
         <div className="main-content">
           <div className="topbar">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
@@ -130,28 +155,57 @@ export default function ProfileScreen({ active, showScreen }) {
             </div>
           </div>
           
-          <div style={{ marginTop: 24 }}>
+          <div style={{ marginTop: 32 }}>
             {!isEditing && (
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "24px", marginBottom: 32 }}>
-                {profile?.profilePic ? (
-                  <img src={profile.profilePic} style={{ width: 100, height: 100, borderRadius: "50%", objectFit: "cover", border: "2px solid var(--gray-200)" }} alt="Profile Avatar" />
-                ) : (
-                  <div style={{ width: 100, height: 100, borderRadius: "50%", background: "var(--teal-light)", color: "var(--teal-dark)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2.5rem", fontWeight: "bold" }}>
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                )}
+              <div style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 32, 
+                marginBottom: 48,
+                padding: "24px 32px",
+                background: "rgba(255,255,255,0.02)",
+                borderRadius: 32,
+                border: "1px solid rgba(255,255,255,0.05)",
+                backdropFilter: "blur(12px)"
+              }}>
+                <div style={{ position: "relative" }}>
+                  {(isGuideMode ? user?.photoURL : profile?.profilePic) ? (
+                    <img src={isGuideMode ? user.photoURL : profile.profilePic} style={{ width: 120, height: 120, borderRadius: "50%", objectFit: "cover", border: "4px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }} alt="Profile Avatar" />
+                  ) : (
+                    <div style={{ width: 120, height: 120, borderRadius: "50%", background: "linear-gradient(135deg, var(--teal), #0891b2)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3rem", fontWeight: 800, textShadow: "0 2px 4px rgba(0,0,0,0.2)" }}>
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div style={{ position: "absolute", bottom: 8, right: 8, width: 24, height: 24, background: "#22c55e", borderRadius: "50%", border: "4px solid #0f172a" }} title="Online"></div>
+                </div>
                 <div>
-                  <h2 style={{ margin: "0 0 8px 0", fontSize: "1.8rem", color: "var(--text-main)" }}>{displayName}</h2>
-                  <p style={{ margin: "0 0 12px 0", color: "var(--gray-600)", fontSize: "1rem" }}>{user?.email || "-"}</p>
-                  {profile?.bio && <p style={{ margin: "0", color: "var(--text-light)", fontStyle: "italic", lineHeight: "1.5" }}>"{profile.bio}"</p>}
+                  <h2 style={{ margin: "0 0 6px 0", fontSize: "2.4rem", fontWeight: 800, letterSpacing: -1, color: "white" }}>{displayName}</h2>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <span style={{ 
+                      padding: "4px 12px", 
+                      borderRadius: 100, 
+                      background: "rgba(255,255,255,0.05)", 
+                      color: "var(--gray-400)", 
+                      fontSize: 13, 
+                      fontWeight: 500,
+                      border: "1px solid rgba(255,255,255,0.1)"
+                    }}>
+                      {user?.email || "-"}
+                    </span>
+                  </div>
+                  {(isGuideMode ? user?.bio : profile?.bio) && (
+                    <p style={{ margin: 0, color: "var(--gray-400)", fontSize: 16, lineHeight: 1.5, maxWidth: 600 }}>
+                      {(isGuideMode ? user?.bio : profile?.bio)}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
             {isEditing && (
               <form onSubmit={handleSave} className="profile-edit-card">
                 <div className="edit-card-header">
-                  <h2>Edit Profile</h2>
-                  <p>Fine-tune your traveler identity and security settings.</p>
+                  <h2>{t("editProfileTitle")}</h2>
+                  <p>{t("editProfileSubtitle")}</p>
                 </div>
 
                 <div className="profile-pic-edit">
@@ -172,51 +226,145 @@ export default function ProfileScreen({ active, showScreen }) {
 
                 <div className="form-grid">
                   <div className="form-group">
-                    <label>First Name</label>
+                    <label>{t("firstNameLabel")}</label>
                     <input type="text" className="input-field" value={editForm.firstName} onChange={e => setEditForm(prev => ({...prev, firstName: e.target.value}))} required />
                   </div>
                   <div className="form-group">
-                    <label>Last Name</label>
+                    <label>{t("lastNameLabel")}</label>
                     <input type="text" className="input-field" value={editForm.lastName} onChange={e => setEditForm(prev => ({...prev, lastName: e.target.value}))} required />
                   </div>
                   <div className="form-group">
-                    <label>Date of Birth</label>
+                    <label>{t("dobLabel")}</label>
                     <input type="date" className="input-field" value={editForm.dob} onChange={e => setEditForm(prev => ({...prev, dob: e.target.value}))} />
                   </div>
                   <div className="form-group">
-                    <label>Phone Number</label>
+                    <label>{t("phoneNumberLabel")}</label>
                     <input type="tel" className="input-field" value={editForm.phoneNumber} onChange={e => setEditForm(prev => ({...prev, phoneNumber: e.target.value}))} placeholder="+94 7X XXX XXXX" />
                   </div>
                   <div className="form-group full-width">
-                    <label>Email Address <small>(Secure Field)</small></label>
+                    <label>{t("emailLabel")}</label>
                     <input type="email" className="input-field" value={editForm.email} onChange={e => setEditForm(prev => ({...prev, email: e.target.value}))} required disabled={user?.isDevAdmin} />
                   </div>
                   <div className="form-group full-width">
-                    <label>Bio / Traveler Philosophy</label>
-                    <textarea className="input-field" rows={3} value={editForm.bio} onChange={e => setEditForm(prev => ({...prev, bio: e.target.value}))} placeholder="Tell us about yourself..." />
+                    <label>{t("bioLabel")}</label>
+                    <textarea className="input-field" rows={3} value={editForm.bio} onChange={e => setEditForm(prev => ({...prev, bio: e.target.value}))} placeholder={t("bioPlaceholder")} />
                   </div>
                   <div className="form-group">
-                    <label>New Password</label>
+                    <label>{t("passwordLabel")}</label>
                     <input type="password" className="input-field" value={editForm.password} onChange={e => setEditForm(prev => ({...prev, password: e.target.value}))} placeholder="••••••••" disabled={user?.isDevAdmin} />
                   </div>
                   <div className="form-group">
-                    <label>Confirm Password</label>
+                    <label>{t("confirmPasswordLabel")}</label>
                     <input type="password" className="input-field" value={editForm.confirmPassword} onChange={e => setEditForm(prev => ({...prev, confirmPassword: e.target.value}))} placeholder="••••••••" disabled={user?.isDevAdmin} />
                   </div>
                 </div>
 
                 <div className="edit-card-actions">
                   <button type="submit" className="btn-save" disabled={saving}>
-                    {saving ? "Saving Changes..." : "Save Profile"}
+                    {saving ? t("savingProgress") : t("saveButton")}
                   </button>
                   <button type="button" className="btn-cancel" onClick={() => setIsEditing(false)} disabled={saving}>
-                    Cancel
+                    {t("cancelButton")}
                   </button>
                 </div>
               </form>
             )}
 
-            {!isEditing && profile && (
+            {!isEditing && isGuideMode && (
+              <div style={{ marginTop: 32, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
+                <div style={{ 
+                  padding: 32, 
+                  background: "rgba(255,255,255,0.02)", 
+                  backdropFilter: "blur(16px)",
+                  borderRadius: 24,
+                  border: "1px solid rgba(255,255,255,0.05)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+                  transition: "transform 0.3s ease",
+                  cursor: "default"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+                    <span style={{ fontSize: 24 }}>🌟</span>
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: -0.5 }}>Professional DNA</h3>
+                  </div>
+                  
+                  <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                        <small style={{ color: "var(--teal)", textTransform: "uppercase", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>Expertise & Skills</small>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                        {user?.expertise?.length > 0 ? (
+                          user.expertise.map(exp => (
+                            <span key={exp} style={{ 
+                              padding: "6px 14px", 
+                              borderRadius: 12, 
+                              background: "linear-gradient(135deg, rgba(11, 168, 145, 0.2), rgba(11, 168, 145, 0.05))", 
+                              color: "white", 
+                              fontSize: 13, 
+                              fontWeight: 500,
+                              border: "1px solid rgba(11, 168, 145, 0.3)",
+                              boxShadow: "0 4px 12px rgba(11, 168, 145, 0.1)"
+                            }}>
+                              {exp.charAt(0).toUpperCase() + exp.slice(1)}
+                            </span>
+                          ))
+                        ) : (
+                          <span style={{ color: "var(--gray-500)", fontStyle: "italic" }}>No expertise selected yet</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <small style={{ color: "var(--teal)", textTransform: "uppercase", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>Linguistic Mastery</small>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 15, color: "var(--gray-200)", lineHeight: 1.6 }}>
+                        {user?.languages?.length > 0 ? user.languages.map(l => l.charAt(0).toUpperCase() + l.slice(1)).join(" • ") : "English (Default)"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  padding: 32, 
+                  background: "rgba(255,255,255,0.02)", 
+                  backdropFilter: "blur(16px)",
+                  borderRadius: 24,
+                  border: "1px solid rgba(255,255,255,0.05)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.2)"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+                    <span style={{ fontSize: 24 }}>💼</span>
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: -0.5 }}>Experience Hub</h3>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                      <div style={{ background: "rgba(255,255,255,0.03)", padding: 16, borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)" }}>
+                        <small style={{ color: "var(--gray-400)", textTransform: "uppercase", fontSize: 10, fontWeight: 700, display: "block", marginBottom: 4 }}>Tenure</small>
+                        <p style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{user?.experienceYears || 0} <span style={{ fontSize: 12, fontWeight: 400, color: "var(--gray-400)" }}>Years</span></p>
+                      </div>
+                      <div style={{ background: "rgba(255,255,255,0.03)", padding: 16, borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)" }}>
+                        <small style={{ color: "var(--gray-400)", textTransform: "uppercase", fontSize: 10, fontWeight: 700, display: "block", marginBottom: 4 }}>Rate</small>
+                        <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--teal)" }}>{user?.hourlyRate || "$25"}<span style={{ fontSize: 12, fontWeight: 400, color: "var(--gray-400)" }}>/hr</span></p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <small style={{ color: "var(--teal)", textTransform: "uppercase", fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>Active Domain</small>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 18 }}>📍</span>
+                        <p style={{ margin: 0, fontSize: 16, fontWeight: 500 }}>{user?.location || "Colombo, Sri Lanka"}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!isEditing && !isGuideMode && profile && (
               <div style={{ 
                 marginTop: 24, 
                 padding: "24px", 
@@ -268,17 +416,32 @@ export default function ProfileScreen({ active, showScreen }) {
               </div>
             )}
 
-            <div style={{ marginTop: 32, padding: 24, background: "var(--white)", borderRadius: 12, border: "1px solid var(--gray-100)", boxShadow: "var(--shadow-sm)" }}>
-              <h2 style={{ fontSize: "1.2rem", marginBottom: 8, color: "var(--text)" }}>{t("profileTravelerQuests")}</h2>
-              <p style={{ color: "var(--gray-600)", marginBottom: 16 }}>
-                {t("profileTravelerQuestsDesc")}
-              </p>
-              <button className="btn-primary" onClick={() => showScreen("screen-quests")}>
-                {t("profileViewQuests")}
-              </button>
-            </div>
+            {!isGuideMode && (
+              <div style={{ marginTop: 32, padding: 24, background: "var(--white)", borderRadius: 12, border: "1px solid var(--gray-100)", boxShadow: "var(--shadow-sm)" }}>
+                <h2 style={{ fontSize: "1.2rem", marginBottom: 8, color: "var(--text)" }}>{t("profileTravelerQuests")}</h2>
+                <p style={{ color: "var(--gray-600)", marginBottom: 16 }}>
+                  {t("profileTravelerQuestsDesc")}
+                </p>
+                <button className="btn-primary" onClick={() => showScreen("screen-quests")}>
+                  {t("profileViewQuests")}
+                </button>
+              </div>
+            )}
 
-            <button className="btn-logout-small" onClick={handleLogout}>{t("profileSignOut")}</button>
+            <button className="forgot-link" style={{ 
+              marginTop: 48, 
+              padding: "12px 24px", 
+              fontSize: 14, 
+              fontWeight: 600, 
+              color: "#ff4757",
+              background: "rgba(255, 71, 87, 0.05)",
+              border: "1px solid rgba(255, 71, 87, 0.1)",
+              borderRadius: 12,
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }} onClick={handleLogout}>
+              {t("profileSignOut")}
+            </button>
           </div>
         </div>
       </div>
