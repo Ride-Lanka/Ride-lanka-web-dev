@@ -58,6 +58,10 @@ const TRANSLATIONS = {
     // Main Navigation (Sidebar)
     navHome: "Home",
     navExplore: "Explore",
+    navDiscoveryHub: "Discovery Hub",
+    discoveryHubSubtitle: "Explore real-world destinations using the power of Google Maps.",
+    discoverySearchPh: "Where do you want to go?",
+    discoveryStartDesc: "Type anything from \"Unawatuna Beach\" to \"Sigiriya\" to see live details.",
     navTourGuides: "Tour Guides",
     navMyTrips: "My Trips",
     navWishlist: "Wishlist",
@@ -361,6 +365,10 @@ const TRANSLATIONS = {
     // Main Navigation (Sidebar)
     navHome: "මුල් පිටුව",
     navExplore: "ගවේෂණය",
+    navDiscoveryHub: "ගවේෂණ කේන්ද්‍රය",
+    discoveryHubSubtitle: "ගූගල් මැප්ස් හරහා සැබෑ ලෝකයේ ගමනාන්ත ගවේෂණය කරන්න.",
+    discoverySearchPh: "ඔබට කොහේ යාමට අවශ්‍යද?",
+    discoveryStartDesc: "සජීවී විස්තර බැලීමට \"උණවටුන වෙරළ\" සිට \"සීගිරිය\" දක්වා ඕනෑම දෙයක් ඇතුළත් කරන්න.",
     navTourGuides: "සංචාරක මාර්ගෝපදේශ",
     navMyTrips: "මගේ සංචාර",
     navWishlist: "පැතුම් ලැයිස්තුව",
@@ -614,6 +622,10 @@ const TRANSLATIONS = {
     // Main Navigation (Sidebar)
     navHome: "முகப்பு",
     navExplore: "ஆராயுங்கள்",
+    navDiscoveryHub: "கண்டுபிடிப்பு மையம்",
+    discoveryHubSubtitle: "கூகுள் மேப்ஸின் ஆற்றலைப் பயன்படுத்தி நிஜ உலக இடங்களை ஆராயுங்கள்.",
+    discoverySearchPh: "நீங்கள் எங்கே போக வேண்டும்?",
+    discoveryStartDesc: "நேரடி விவரங்களைக் காண \"உணவடுன கடற்கரை\" முதல் \"சிகிரியா\" வரை எதையும் உள்ளிடவும்.",
     navTourGuides: "சுற்றுலா வழிகாட்டிகள்",
     navMyTrips: "எனது பயணங்கள்",
     navWishlist: "விருப்பப்பட்டியல்",
