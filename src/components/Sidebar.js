@@ -123,6 +123,14 @@ export default function Sidebar({
           <span className="icon">🧭</span> {t("navExplore")}
         </div>
         <div
+          className={`nav-item ${activeItem === "discovery-hub" ? "active" : ""}`}
+          onClick={nav("screen-discovery-hub")}
+          role="button"
+          tabIndex={0}
+        >
+          <span className="icon">🔭</span> {t("navDiscoveryHub")}
+        </div>
+        <div
           className={`nav-item ${activeItem === "tour-guides" ? "active" : ""}`}
           onClick={nav("screen-tour-guides")}
           role="button"
