@@ -39,7 +39,7 @@ export default function Sidebar({
           </span>
         </div>
         <div className="nav-section">
-          <div className="nav-label">{t("navGuidePortal")}</div>
+          <div className="nav-label">{t("navGuidePortalLabel")}</div>
           <div
             className={`nav-item ${activeItem === "guide-dashboard" ? "active" : ""}`}
             onClick={nav("screen-guide-hub", { guideHubTab: "profile" })}
@@ -54,7 +54,7 @@ export default function Sidebar({
             role="button"
             tabIndex={0}
           >
-            <span className="icon">📬</span> {t("navGuideBookingRequests")}
+            <span className="icon">📬</span> {t("navGuideBookings")}
           </div>
           <div
             className={`nav-item ${activeItem === "guide-stories" ? "active" : ""}`}
@@ -62,11 +62,11 @@ export default function Sidebar({
             role="button"
             tabIndex={0}
           >
-            <span className="icon">✍️</span> {t("navGuideStories") || "Stories / Blog Posts"}
+            <span className="icon">✍️</span> {t("navGuideStories")}
           </div>
         </div>
         <div className="nav-section" style={{ marginTop: 12 }}>
-          <div className="nav-label">{t("navAccount")}</div>
+          <div className="nav-label">{t("navAccountLabel")}</div>
           <div
             className={`nav-item ${activeItem === "profile" ? "active" : ""}`}
             onClick={nav("screen-profile")}
@@ -142,7 +142,7 @@ export default function Sidebar({
         </div>
       </div>
       <div className="nav-section" style={{ marginTop: 12 }}>
-        <div className="nav-label">{t("navTrips")}</div>
+        <div className="nav-label">{t("navTripsLabel")}</div>
         <div
           className={`nav-item ${activeItem === "trips" ? "active" : ""}`}
           onClick={nav("screen-trips")}
@@ -161,7 +161,7 @@ export default function Sidebar({
         </div>
       </div>
       <div className="nav-section" style={{ marginTop: 12 }}>
-        <div className="nav-label">{t("navAccount")}</div>
+        <div className="nav-label">{t("navAccountLabel")}</div>
         <div
           className={`nav-item ${activeItem === "profile" ? "active" : ""}`}
           onClick={nav("screen-profile")}
