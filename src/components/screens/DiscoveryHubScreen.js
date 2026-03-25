@@ -134,7 +134,7 @@ export default function DiscoveryHubScreen({ active, showScreen }) {
               </div>
             ) : (
               <div className="discovery-placeholder animate-fade-in">
-                <div className="placeholder-icon">🌍</div>
+                <div className="placeholder-icon">🌏</div>
                 <h3>{t("navDiscover")}</h3>
                 <p>{t("discoveryStartDesc")}</p>
               </div>
@@ -147,6 +147,7 @@ export default function DiscoveryHubScreen({ active, showScreen }) {
         #screen-discovery-hub {
           background: var(--off-white);
           min-height: 100vh;
+          overflow-x: hidden;
         }
         .discovery-hero {
           padding: 80px 24px 60px;
@@ -155,15 +156,22 @@ export default function DiscoveryHubScreen({ active, showScreen }) {
           border-radius: 0 0 60px 60px;
           margin-bottom: 50px;
         }
-        html.dark .discovery-hero {
-          background: linear-gradient(to bottom, rgba(11, 168, 145, 0.15), transparent);
+        :global(html.dark) .discovery-hero {
+          background: #0c1215;
+          border-bottom: 1px solid #1f2a30;
+          box-shadow: inset 0 -20px 40px rgba(0,0,0,0.5);
         }
         .discovery-hero h1 {
           font-size: clamp(2.5rem, 5vw, 4rem);
           margin-bottom: 12px;
           color: var(--teal-dark);
+          text-shadow: 0 4px 10px rgba(0,0,0,0.1);
           letter-spacing: -1.5px;
           font-weight: 900;
+        }
+        :global(html.dark) .discovery-hero h1 {
+          color: #6be5cf;
+          text-shadow: 0 0 30px rgba(107, 229, 207, 0.3);
         }
         .discovery-subtitle {
           color: var(--gray-600);
@@ -172,6 +180,9 @@ export default function DiscoveryHubScreen({ active, showScreen }) {
           max-width: 600px;
           margin-left: auto;
           margin-right: auto;
+        }
+        :global(html.dark) .discovery-subtitle {
+          color: var(--gray-400);
         }
         .search-container-futuristic {
           position: relative;
@@ -190,6 +201,15 @@ export default function DiscoveryHubScreen({ active, showScreen }) {
           box-shadow: var(--shadow-lg);
           transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
           outline: none;
+        }
+        :global(html.dark) .discovery-search-input {
+          background: #1a242a;
+          border-color: #2a3840;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        :global(html.dark) .discovery-search-input::placeholder {
+          color: var(--gray-400);
+          opacity: 0.6;
         }
         .discovery-search-input:focus {
           border-color: var(--teal);
@@ -251,7 +271,7 @@ export default function DiscoveryHubScreen({ active, showScreen }) {
           transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
           z-index: 5;
         }
-        html.dark .wishlist-toggle {
+        :global(html.dark) .wishlist-toggle {
           background: rgba(30, 48, 53, 0.8);
           color: white;
         }
@@ -323,7 +343,7 @@ export default function DiscoveryHubScreen({ active, showScreen }) {
           letter-spacing: 0.5px;
           transition: all 0.2s;
         }
-        html.dark .tag {
+        :global(html.dark) .tag {
           background: #173138;
           color: #6be5cf;
         }

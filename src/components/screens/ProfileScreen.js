@@ -146,7 +146,7 @@ export default function ProfileScreen({ active, showScreen }) {
         <div className="main-content">
           <div className="topbar">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-              <h1>{t("profileTitle")}</h1>
+              <h1>{t("Profile")}</h1>
               {!isEditing && (
                 <button className="btn-primary" onClick={handleEditClick} style={{ padding: "8px 16px", fontSize: "0.95rem", background: "var(--teal)", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>
                   ✎ {t("profileEdit")}
@@ -403,11 +403,28 @@ export default function ProfileScreen({ active, showScreen }) {
                     <p style={{ color: "var(--gray-400)", fontSize: "0.95rem" }}>No badges earned yet. Complete quests to collect them!</p>
                   ) : (
                     <div className="honeycomb">
-                      {profile.badges.map(b => (
-                        <div key={b.id} className="hexagon" title={b.name} style={{ border: `1px solid ${getLevelDetails(profile.xp).color}33` }}>
-                          {b.url && <img src={b.url} alt={b.name} />}
-                        </div>
-                      ))}
+                      {profile.badges.map(b => {
+                        const isEmoji = !b.url || (!b.url.startsWith("http") && !b.url.startsWith("data:image"));
+                        return (
+                          <div key={b.id} className="hexagon" title={b.name} style={{ border: `1px solid ${getLevelDetails(profile.xp).color}33`, position: "relative" }}>
+                            {isEmoji ? (
+                              <div style={{ 
+                                position: "relative", zIndex: 2, 
+                                background: "rgba(255,255,255,0.95)", 
+                                width: "54px", height: "54px", 
+                                borderRadius: "50%", 
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), inset 0 2px 4px rgba(0,0,0,0.05)",
+                                border: "1px solid rgba(0,0,0,0.05)"
+                              }}>
+                                <span style={{ fontSize: "2rem", filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.1))" }}>{b.url || "🥉"}</span>
+                              </div>
+                            ) : (
+                              <img src={b.url} alt={b.name} style={{ width: "100%", height: "100%", objectFit: "cover", position: "relative", zIndex: 2 }} />
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
